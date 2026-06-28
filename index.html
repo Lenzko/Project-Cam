@@ -2,7 +2,7 @@
 <html>
 <head>
 
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <title>Fast Digit Scanner</title>
 
@@ -12,55 +12,69 @@
 <style>
 
 body{
-background:#111;
-color:white;
-font-family:Arial;
-text-align:center;
+    margin:0;
+    background:#111;
+    color:white;
+    font-family:Arial;
+    text-align:center;
+}
+
+
+h2{
+    margin:15px;
 }
 
 
 .camera{
-position:relative;
-width:95%;
-max-width:500px;
-margin:auto;
+
+    position:relative;
+
+    width:95%;
+    max-width:500px;
+
+    margin:auto;
+
+    overflow:hidden;
+
+    border-radius:20px;
+
 }
 
 
 video{
-width:100%;
-border-radius:20px;
-}
 
-
-
-#box{
-
-position:absolute;
-
-width:220px;
-height:120px;
-
-border:4px solid #00ff00;
-
-top:50%;
-left:50%;
-
-transform:translate(-50%,-50%);
+    width:100%;
+    display:block;
 
 }
 
 
 
-canvas{
-display:none;
+#scanBox{
+
+    position:absolute;
+
+    width:220px;
+    height:120px;
+
+    top:50%;
+    left:50%;
+
+    transform:translate(-50%,-50%);
+
+    border:4px solid #00ff00;
+
+    box-sizing:border-box;
+
 }
+
 
 
 #hasil{
 
-font-size:30px;
-margin:20px;
+    font-size:35px;
+
+    margin:20px;
 
 }
 
@@ -68,12 +82,22 @@ margin:20px;
 
 button{
 
-font-size:40px;
+    width:80px;
+    height:80px;
 
-border-radius:50%;
+    border-radius:50%;
 
-width:80px;
-height:80px;
+    font-size:40px;
+
+    border:none;
+
+}
+
+
+
+canvas{
+
+    display:none;
 
 }
 
@@ -84,10 +108,11 @@ height:80px;
 </head>
 
 
+
 <body>
 
 
-<h2>Realtime Digit Scanner</h2>
+<h2>📷 Digit Scanner</h2>
 
 
 
@@ -97,7 +122,7 @@ height:80px;
 <video id="video" autoplay playsinline></video>
 
 
-<div id="box"></div>
+<div id="scanBox"></div>
 
 
 </div>
@@ -110,14 +135,13 @@ height:80px;
 
 
 
-<button onclick="start()">
+<button onclick="startCamera()">
 📷
 </button>
 
 
 
-
-<canvas id="scan"></canvas>
+<canvas id="canvas"></canvas>
 
 
 
@@ -125,15 +149,15 @@ height:80px;
 <script>
 
 
-let video =
+const video =
 document.getElementById("video");
 
 
-let canvas =
-document.getElementById("scan");
+const canvas =
+document.getElementById("canvas");
 
 
-let hasil =
+const hasil =
 document.getElementById("hasil");
 
 
@@ -146,20 +170,31 @@ let aktif=false;
 
 
 
-async function start(){
+async function startCamera(){
 
 
 if(aktif)return;
 
 
 
+try{
+
+
 let stream =
 await navigator.mediaDevices.getUserMedia({
 
 video:{
+
 facingMode:"environment",
-width:480,
-height:360
+
+width:{
+    ideal:480
+},
+
+height:{
+    ideal:360
+}
+
 }
 
 });
@@ -173,21 +208,38 @@ video.srcObject=stream;
 video.onloadedmetadata=async()=>{
 
 
+
 worker =
 await Tesseract.createWorker("eng");
 
 
+
 await worker.setParameters({
 
-tessedit_char_whitelist:"0123456789",
+tessedit_char_whitelist:
+"0123456789",
+
 
 });
+
 
 
 aktif=true;
 
 
-loop();
+scanDigit();
+
+
+};
+
+
+
+}catch(e){
+
+
+alert(
+"Kamera gagal dibuka"
+);
 
 
 }
@@ -200,7 +252,10 @@ loop();
 
 
 
-async function loop(){
+
+
+async function scanDigit(){
+
 
 
 if(!aktif)return;
@@ -217,7 +272,7 @@ canvas.height=120;
 
 
 
-// hanya ambil area kotak
+// ambil area kotak
 
 ctx.drawImage(
 
@@ -240,52 +295,147 @@ video,
 
 
 
-// cek apakah gambar ada objek
 
-let img =
+
+// preprocessing
+
+let image =
 ctx.getImageData(
-0,0,220,120
+0,
+0,
+220,
+120
 );
 
 
 
-let terang=0;
+let data =
+image.data;
 
 
-for(let i=0;i<img.data.length;i+=4){
 
-let v =
-(img.data[i]+img.data[i+1]+img.data[i+2])/3;
+let hitam=0;
 
 
-if(v<180)
-terang++;
+
+for(
+let i=0;
+i<data.length;
+i+=4
+){
+
+
+let gray =
+(
+data[i]+
+data[i+1]+
+data[i+2]
+)/3;
+
+
+
+// threshold
+
+let value =
+gray < 160 ? 0 : 255;
+
+
+
+data[i]=value;
+data[i+1]=value;
+data[i+2]=value;
+
+
+
+if(value===0)
+hitam++;
+
+
+}
+
+
+
+ctx.putImageData(
+image,
+0,
+0
+);
+
+
+
+// cek kosong
+
+if(hitam < 50){
+
+
+hasil.innerHTML="-";
+
+
+setTimeout(
+scanDigit,
+700
+);
+
+
+return;
 
 }
 
 
 
 
-// kalau kosong jangan OCR
+// resize besar
 
-if(terang>200){
+let big =
+document.createElement("canvas");
 
 
-let result =
-await worker.recognize(canvas);
+big.width=660;
+
+big.height=360;
+
+
+
+let bctx =
+big.getContext("2d");
+
+
+bctx.drawImage(
+
+canvas,
+
+0,
+0,
+
+660,
+360
+
+);
+
+
+
+
+
+let res =
+await worker.recognize(big);
+
+
 
 
 
 let angka =
-result.data.text.replace(/\D/g,"");
+res.data.text
+.replace(/[^0-9]/g,"");
 
 
-// filter hasil
+
+// filter hasil palsu
 
 if(
-angka.length>0 &&
-angka.length<=6
+angka.length>=1 &&
+angka.length<=5
 ){
+
 
 hasil.innerHTML =
 angka;
@@ -293,17 +443,20 @@ angka;
 
 }else{
 
+
 hasil.innerHTML="-";
 
-}
-
-
 
 }
 
 
 
-setTimeout(loop,800);
+
+
+setTimeout(
+scanDigit,
+700
+);
 
 
 
