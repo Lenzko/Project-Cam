@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Realtime Number Scanner</title>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+<style>
+
+body{
+    margin:0;
+    background:#111;
+    color:white;
+    font-family:Arial;
+    text-align:center;
+}
+
+
+h2{
+    margin-top:20px;
+}
+
+
+.camera-box{
+
+    position:relative;
+    width:95%;
+    max-width:700px;
+    margin:auto;
+
+    border-radius:20px;
+    overflow:hidden;
+
+}
+
+
+
+video{
+
+    width:100%;
+    display:block;
+
+}
+
+
+
+canvas{
+
+    position:absolute;
+    top:0;
+    left:0;
+
+    width:100%;
+    height:100%;
+
+}
+
+
+
+#result{
+
+    position:fixed;
+
+    bottom:30px;
+    left:50%;
+
+    transform:translateX(-50%);
+
+    background:#000c;
+
+    padding:15px 30px;
+
+    border-radius:30px;
+
+    font-size:22px;
+
+}
+
+
+
+button{
+
+    margin:25px;
+
+    width:90px;
+    height:90px;
+
+    border-radius:50%;
+
+    border:none;
+
+    background:white;
+
+    font-size:45px;
+
+}
+
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<h2>📷 Realtime Number Scanner</h2>
+
+
+
+<div class="camera-box">
+
+
+<video id="video" autoplay playsinline></video>
+
+
+<canvas id="overlay"></canvas>
+
+
+</div>
+
+
+
+<div id="result">
+Angka : -
+</div>
+
+
+
+<button onclick="openCamera()">
+📷
+</button>
+
+
+
+
+<script>
+
+
+const video =
+document.getElementById("video");
+
+
+const canvas =
+document.getElementById("overlay");
+
+
+const ctx =
+canvas.getContext("2d");
+
+
+const result =
+document.getElementById("result");
+
+
+
+let running=false;
+
+
+
+
+
+async function openCamera(){
+
+
+if(running)return;
+
+
+
+try{
+
+
+const stream =
+await navigator.mediaDevices.getUserMedia({
+
+
+video:{
+
+facingMode:"environment",
+
+width:{
+    ideal:1920
+},
+
+height:{
+    ideal:1080
+}
+
+
+}
+
+
+});
+
+
+
+video.srcObject=stream;
+
+
+
+video.onloadedmetadata=()=>{
+
+
+canvas.width =
+video.videoWidth;
+
+
+canvas.height =
+video.videoHeight;
+
+
+
+running=true;
+
+
+scanNumber();
+
+
+};
+
+
+
+}catch(e){
+
+
+alert(
+"Kamera tidak bisa dibuka. Pastikan izin kamera aktif."
+);
+
+
+}
+
+
+}
+
+
+
+
+
+
+
+async function scanNumber(){
+
+
+if(!running)return;
+
+
+
+let temp =
+document.createElement("canvas");
+
+
+temp.width =
+video.videoWidth;
+
+
+temp.height =
+video.videoHeight;
+
+
+
+let tctx =
+temp.getContext("2d");
+
+
+
+tctx.drawImage(
+video,
+0,
+0
+);
+
+
+
+
+const data =
+await Tesseract.recognize(
+
+temp,
+
+'eng',
+
+{
+
+tessedit_char_whitelist:
+"0123456789",
+
+}
+
+
+);
+
+
+
+
+drawResult(
+data.data.words
+);
+
+
+
+
+setTimeout(
+scanNumber,
+1000
+);
+
+
+
+}
+
+
+
+
+
+
+
+function drawResult(words){
+
+
+ctx.clearRect(
+
+0,
+0,
+canvas.width,
+canvas.height
+
+);
+
+
+
+let numbers=[];
+
+
+
+words.forEach(w=>{
+
+
+let angka =
+w.text.replace(/\D/g,"");
+
+
+
+if(angka.length>0){
+
+
+
+let box =
+w.bbox;
+
+
+
+// kotak AR/VR
+
+
+ctx.strokeStyle =
+"#00ff00";
+
+
+ctx.lineWidth=5;
+
+
+
+ctx.strokeRect(
+
+box.x0,
+box.y0,
+
+box.x1-box.x0,
+
+box.y1-box.y0
+
+);
+
+
+
+// teks angka
+
+
+ctx.font =
+"40px Arial";
+
+
+ctx.fillStyle =
+"#00ff00";
+
+
+ctx.fillText(
+
+angka,
+
+box.x0,
+
+box.y0-10
+
+);
+
+
+
+numbers.push(angka);
+
+
+
+}
+
+
+});
+
+
+
+
+if(numbers.length){
+
+
+result.innerHTML =
+"Angka : " +
+numbers.join(" , ");
+
+
+}else{
+
+
+result.innerHTML =
+"Angka : -";
+
+
+}
+
+
+
+}
+
+
+
+</script>
+
+
+
+</body>
+</html>
